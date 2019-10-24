@@ -3,6 +3,7 @@ package robot
 import (
 	"fmt"
 	"strings"
+	"sync"
 )
 
 // N n
@@ -28,7 +29,17 @@ type Action3 struct {
 
 // junk, just to avoid build errors/warnings
 func (d Dir) String() string {
-	return ""
+	switch d {
+	case N:
+		return "N"
+	case S:
+		return "S"
+	case W:
+		return "W"
+	case E:
+		return "E"
+	}
+	return "?"
 }
 
 // Step 1
@@ -98,7 +109,7 @@ func Room(
 	// iterating: https://tour.golang.org/concurrency/5
 	for action := range chanAction {
 		fmt.Printf("ROOM# got action: %v (%s)\n", action, string(action))
-		fmt.Printf("ROOM# current robot situation: %d %v\n",
+		fmt.Printf("ROOM# current robot situation: %s %v\n",
 			robot.Dir, robot.Pos)
 		// robot will contain the data needed in order to move it.
 		switch action {
@@ -117,23 +128,36 @@ func Room(
 		default:
 			fmt.Println("ROOM# no valid action")
 		}
-		fmt.Printf("ROOM# temporary new robot situation: %d %v\n",
+		fmt.Printf("ROOM# temporary new robot situation: %s %v\n",
 			robot.Dir, robot.Pos)
 	}
-	fmt.Printf("ROOM# new robot situation: %d %v\n",
+	fmt.Printf("ROOM# new robot situation: %s %v\n",
 		robot.Dir, robot.Pos)
 
 	fmt.Println("ROOM# sending robot via channel")
 	chanStep2Robot <- robot
 }
 
-func (r *Step2Robot) advance(room Rect, otherRobots ...[]Step3Robot) (moved bool) {
-	fmt.Println("we are moving!")
+func (r Step2Robot) isSteppingIntoOtherRobots(robots []Step3Robot) bool {
+	for _, robot := range robots {
+		fmt.Printf("checking %v with %v\n", r.Pos, robot.Pos)
+		if r.Pos == robot.Pos {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Step2Robot) advance(room Rect, otherRobots ...Step3Robot) (moved bool) {
+
+	fmt.Println("AD# we are moving!")
+	areThereOthers := len(otherRobots) > 0
+	oldPos := r.Pos
 	switch r.Dir {
 	case N:
 		if r.Pos.Northing != room.Max.Northing {
 			r.Pos.Northing++
-			fmt.Println("/\\")
+			fmt.Println("AD# direction: /\\")
 			moved = true
 		} else {
 			fmt.Println("wall in N")
@@ -142,34 +166,45 @@ func (r *Step2Robot) advance(room Rect, otherRobots ...[]Step3Robot) (moved bool
 	case S:
 		if r.Pos.Northing != room.Min.Northing {
 			r.Pos.Northing--
-			fmt.Println("\\/")
+			fmt.Println("AD# direction: \\/")
 			moved = true
 		} else {
-			fmt.Println("wall in S")
+			fmt.Println("AD# wall in S")
 		}
 		break
 	case E:
 		if r.Pos.Easting != room.Max.Easting {
 			r.Pos.Easting++
-			fmt.Println(">")
+			fmt.Println("AD# direction: >")
 			moved = true
 		} else {
-			fmt.Println("wall in E")
+			fmt.Println("AD# wall in E")
 		}
 		break
 	case W:
 		if r.Pos.Easting != room.Min.Easting {
 			r.Pos.Easting--
-			fmt.Println("<")
+			fmt.Println("AD# direction: <")
 			moved = true
 		} else {
-			fmt.Println("wall in W")
+			fmt.Println("AD# wall in W")
 		}
 		break
 	default:
-		fmt.Println("No valid direction provided :(")
+		fmt.Println("AD# No valid direction provided :(")
 	}
-	fmt.Printf("has moved? %v\n", moved)
+	fmt.Printf("AD# should move? %v\n", moved)
+	if moved {
+		// not stepped into walls, let's check robots positions
+		if areThereOthers {
+			if r.isSteppingIntoOtherRobots(otherRobots) {
+				fmt.Println("AD# returning robot to original position")
+				r.Pos = oldPos
+				moved = false
+			}
+		}
+
+	}
 	return
 }
 
@@ -267,7 +302,8 @@ func Room3(
 		if names[robot.Name] {
 			// dup!
 			log <- "Duplicated robot name found :("
-			continue
+			chanRobot <- robots
+			return
 		}
 		names[robot.Name] = true
 
@@ -275,21 +311,29 @@ func Room3(
 		msgOut := "out of borders"
 		placeable := true
 		if robot.Pos.Easting < room.Min.Easting || robot.Pos.Easting > room.Max.Easting {
-			log <- msgOut
 			placeable = false
 		}
 		if robot.Pos.Northing < room.Min.Northing || robot.Pos.Northing > room.Max.Northing {
-			log <- msgOut
 			placeable = false
 		}
 
-		if placeable {
-			fmt.Println("Robot is placeable")
+		if robot.isSteppingIntoOtherRobots(getOtherRobots(robot, robots)) {
+			fmt.Println("Robot are stepping on each other")
+			placeable = false
 		}
+
+		if !placeable {
+			log <- msgOut
+			chanRobot <- robots
+			return
+		}
+
+		fmt.Println("Robot is placeable")
 
 	}
 
 	for action := range chanActions {
+		mutex := sync.Mutex{}
 		fmt.Printf("R3# got action: %v\n", action)
 
 		if action.action == 'Q' {
@@ -299,37 +343,39 @@ func Room3(
 
 		// search the robot we want to operate
 		aRobotIsFound := false
+		mutex.Lock()
 
 		for index, robot := range robots {
-			if robot.Name == action.robotName {
-				aRobotIsFound = true
-				fmt.Println("R3# operating robot:", action.robotName)
-				fmt.Printf("R3# current robot situation: %d %v\n",
-					robots[index].Step2Robot.Dir, robots[index].Step2Robot.Pos)
-				switch action.action {
-				case 'A':
-					fmt.Println("R3# advancing")
-					hasMoved := robots[index].Step2Robot.advance(
-						room, getOtherRobots(robot, robots))
-					// hasMoved := robots[index].Step2Robot.advance(room)
-					if !hasMoved {
-						log <- "robot over a wall"
-					}
-					break
-				case 'L':
-					fmt.Println("R3# left")
-					robots[index].Step2Robot.left()
-					break
-				case 'R':
-					fmt.Println("R3# right")
-					robots[index].Step2Robot.right()
-					break
-				default:
-					fmt.Println("R3# no valid action")
-				}
-				fmt.Printf("R3# new robot situation: %d %v\n",
-					robots[index].Step2Robot.Dir, robots[index].Step2Robot.Pos)
+			if robot.Name != action.robotName {
+				continue
 			}
+			aRobotIsFound = true
+			fmt.Println("R3# operating robot:", action.robotName)
+			fmt.Printf("R3# current robot situation: %d %v\n",
+				robots[index].Step2Robot.Dir, robots[index].Step2Robot.Pos)
+			switch action.action {
+			case 'A':
+				fmt.Printf("R3# advancing %s\n", robots[index].Name)
+				hasMoved := robots[index].Step2Robot.advance(
+					room, getOtherRobots(robots[index], robots)...)
+				// hasMoved := robots[index].Step2Robot.advance(room)
+				if !hasMoved {
+					log <- "robot over a wall"
+				}
+				break
+			case 'L':
+				fmt.Println("R3# left")
+				robots[index].Step2Robot.left()
+				break
+			case 'R':
+				fmt.Println("R3# right")
+				robots[index].Step2Robot.right()
+				break
+			default:
+				fmt.Println("R3# no valid action")
+			}
+			fmt.Printf("R3# new robot situation: %d %v\n",
+				robots[index].Step2Robot.Dir, robots[index].Step2Robot.Pos)
 		}
 
 		if !aRobotIsFound {
@@ -337,7 +383,7 @@ func Room3(
 			fmt.Println(msg)
 			log <- msg
 		}
-
+		mutex.Unlock()
 	}
 
 	// finally
@@ -383,7 +429,7 @@ func StartRobot3(
 		// log <- "No action"
 	} else {
 		for _, act := range actions {
-			fmt.Printf("SR3# executing action: %s\n", act)
+			fmt.Printf("SR3# will execute action: %s\n", act)
 			//
 			switch act {
 			case "A":
@@ -397,10 +443,12 @@ func StartRobot3(
 				break
 			default:
 				log <- "Unknown action"
+				return
 			}
 			// we must trigger the Room in order to update robot state, even if no
 			// actions
 			action <- toBeSentAction
+			fmt.Println("After chan send")
 		}
 	}
 	fmt.Println("SR3# closing action channel")

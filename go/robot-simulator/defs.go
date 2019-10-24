@@ -1,6 +1,8 @@
 package robot
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // definitions used in step 1
 
