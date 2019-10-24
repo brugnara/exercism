@@ -6,16 +6,16 @@ import (
 )
 
 // N n
-var N = Dir('N')
+var N = Dir(0)
 
 // W w
-var W = Dir('W')
+var W = Dir(1)
 
 // S s
-var S = Dir('S')
+var S = Dir(2)
 
 // E e
-var E = Dir('E')
+var E = Dir(3)
 
 // Action type
 type Action byte
@@ -127,7 +127,7 @@ func Room(
 	chanStep2Robot <- robot
 }
 
-func (r *Step2Robot) advance(room Rect) (moved bool) {
+func (r *Step2Robot) advance(room Rect, otherRobots ...[]Step3Robot) (moved bool) {
 	fmt.Println("we are moving!")
 	switch r.Dir {
 	case N:
@@ -241,6 +241,15 @@ func StartRobot(chCommand chan Command, chAction chan Action) {
 
 // Step 3
 
+func getOtherRobots(me Step3Robot, others []Step3Robot) (ret []Step3Robot) {
+	for _, robot := range others {
+		if robot.Name != me.Name {
+			ret = append(ret, robot)
+		}
+	}
+	return
+}
+
 // Room3 implementation
 func Room3(
 	room Rect,
@@ -300,7 +309,9 @@ func Room3(
 				switch action.action {
 				case 'A':
 					fmt.Println("R3# advancing")
-					hasMoved := robots[index].Step2Robot.advance(room)
+					hasMoved := robots[index].Step2Robot.advance(
+						room, getOtherRobots(robot, robots))
+					// hasMoved := robots[index].Step2Robot.advance(room)
 					if !hasMoved {
 						log <- "robot over a wall"
 					}
