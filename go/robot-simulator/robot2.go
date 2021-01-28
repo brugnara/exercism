@@ -23,15 +23,15 @@ func Room(extent Rect, robot Step2Robot, act chan Action, rep chan Step2Robot) {
 func operateInto(room *Rect, robot *Step2Robot, a Action) {
 	switch a {
 	case 'A':
-		moveForward(room, robot)
+		robot.moveForward(room)
 	case 'L':
-		turnLeft(robot)
+		robot.turnLeft()
 	case 'R':
-		turnRight(robot)
+		robot.turnRight()
 	}
 }
 
-func turnLeft(robot *Step2Robot) {
+func (robot *Step2Robot) turnLeft() {
 	switch robot.Dir {
 	case N:
 		robot.Dir = W
@@ -44,7 +44,7 @@ func turnLeft(robot *Step2Robot) {
 	}
 }
 
-func turnRight(robot *Step2Robot) {
+func (robot *Step2Robot) turnRight() {
 	switch robot.Dir {
 	case N:
 		robot.Dir = E
@@ -57,7 +57,7 @@ func turnRight(robot *Step2Robot) {
 	}
 }
 
-func moveForward(room *Rect, robot *Step2Robot) {
+func (robot *Step2Robot) moveForward(room *Rect) {
 	switch robot.Dir {
 	case N:
 		robot.Pos.Northing++
