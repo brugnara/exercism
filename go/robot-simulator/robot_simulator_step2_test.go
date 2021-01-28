@@ -71,15 +71,7 @@ func TestStep2(t *testing.T) {
 		act := make(chan Action)
 		rep := make(chan Step2Robot)
 		go StartRobot(cmd, act)
-		go Room(
-			Rect{
-				Pos{1, 1},
-				Pos{2, 2},
-			},
-			test2[0].Step2Robot,
-			act,
-			rep,
-		)
+		go Room(Rect{Pos{1, 1}, Pos{2, 2}}, test2[0].Step2Robot, act, rep)
 		for j := 1; j < i; j++ {
 			cmd <- test2[j].Command
 		}
