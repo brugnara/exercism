@@ -2,7 +2,9 @@
 
 package robot
 
-import "testing"
+import (
+	"testing"
+)
 
 // For step 1 you implemented robot movements, but it's not much of a simulation.
 // For example where in the source code is "the robot"?  Where is "the grid"?
