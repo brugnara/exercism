@@ -13,3 +13,7 @@ func maxRU(a, b RU) RU {
 	}
 	return b
 }
+
+func isValidCommand(cmd rune) bool {
+	return cmd == 'A' || cmd == 'L' || cmd == 'R'
+}

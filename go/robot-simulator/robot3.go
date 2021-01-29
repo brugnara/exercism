@@ -23,10 +23,6 @@ func StartRobot3(name, script string, action chan Action3, log chan string) {
 	action <- Action3{Action(0), name}
 }
 
-func isValidCommand(cmd rune) bool {
-	return cmd == 'A' || cmd == 'L' || cmd == 'R'
-}
-
 func toHash(robots []Step3Robot, room *Rect) (hash map[string]int, err error) {
 	hash = map[string]int{}
 	occupied := map[Pos]bool{}
