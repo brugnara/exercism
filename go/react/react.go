@@ -1,23 +1,75 @@
 package react
 
-type React struct{}
+type React struct {
+	update    chan Cell
+	done      chan bool
+	cells     map[Cell]*rComputeCell
+	cells2    map[Cell]*rComputeCell2
+	cellValue map[Cell]int
+}
 
-func New() React {
-	return React{}
+func New() Reactor {
+	chn := make(chan Cell)
+	done := make(chan bool)
+	r := &React{
+		chn,
+		done,
+		map[Cell]*rComputeCell{},
+		map[Cell]*rComputeCell2{},
+		map[Cell]int{},
+	}
+
+	go func() {
+		for c := range chn {
+			// 1
+			if _, ok := r.cells[c]; ok {
+				val := r.cells[c].Value()
+				if val != r.cellValue[c] {
+					r.cellValue[c] = val
+					r.cells[c].Callbacks()
+				}
+			}
+
+			// 2
+			if _, ok := r.cells2[c]; ok {
+				val := r.cells2[c].Value()
+				if val != r.cellValue[c] {
+					r.cellValue[c] = val
+					r.cells2[c].Callbacks()
+				}
+			}
+
+			//
+			done <- true
+		}
+	}()
+	return r
 }
 
 // CreateInput foo
-func (r React) CreateInput(x int) InputCell {
+func (r *React) CreateInput(x int) (ret InputCell) {
 	// return RInputCell{&x.(RCell)}
-	return RInputCell{RCell{&x}}
+	ret = &RInputCell{RCell(x), r.update, r.done}
+	return
 }
 
 // CreateCompute1 bar
 func (r React) CreateCompute1(c Cell, fn func(int) int) ComputeCell {
-	return RComputeCell{c, fn}
+	ret := &rComputeCell{Cell: c, variator: fn}
+	// r.cells = append(r.cells, ret)
+	r.cells[c] = ret
+	r.cellValue[c] = ret.Value()
+	return ret
 }
 
 // CreateCompute2 baz
 func (r React) CreateCompute2(c1, c2 Cell, fn func(int, int) int) ComputeCell {
-	return RComputeCell2{c1, c2, fn}
+	ret := &rComputeCell2{c1: c1, c2: c2, variator: fn}
+	//
+	r.cells2[c1] = ret
+	r.cellValue[c1] = ret.Value()
+	r.cells2[c2] = ret
+	r.cellValue[c2] = ret.Value()
+	//
+	return ret
 }

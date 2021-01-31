@@ -1,5 +1,9 @@
 package react
 
-type RCanceler int
+type RCanceler struct {
+	callback func()
+}
 
-func (c RCanceler) Cancel() {}
+func (c RCanceler) Cancel() {
+	c.callback()
+}
