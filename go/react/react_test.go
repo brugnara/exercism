@@ -1,6 +1,7 @@
 package react
 
 import (
+	"log"
 	"runtime"
 	"testing"
 )
@@ -248,6 +249,7 @@ func TestOnlyCallOnceOnMultipleDepChanges(t *testing.T) {
 // Callbacks should not be called if dependencies change in such a way
 // that the final value of the compute cell does not change.
 func TestNoCallOnDepChangesResultingInNoChange(t *testing.T) {
+	log.Println("#####################")
 	r := New()
 	inp := r.CreateInput(0)
 	plus1 := r.CreateCompute1(inp, func(v int) int { return v + 1 })

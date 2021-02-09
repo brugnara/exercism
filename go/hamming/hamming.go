@@ -1,7 +1,7 @@
 package hamming
 
 import (
-	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -12,7 +12,10 @@ func Distance(a, b string) (distance int, err error) {
 
 	// we are not able to calculate if len are different
 	if lenA != lenB {
-		err = errors.New("a")
+		// err = errors.New("a")
+		err = fmt.Errorf("a %d ciao", 10)
+		// err = errors.New(fmt.Sprintf("a %d ciao", 10))
+		fmt.Println(err)
 		return
 	}
 
